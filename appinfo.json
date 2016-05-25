@@ -1,0 +1,19 @@
+{
+  "uuid": "b66e18fd-5209-4f2b-a27a-44909014669b",
+  "shortName": "shadowed-face",
+  "longName": "shadowed-face",
+  "companyName": "MakeAwesomeHappen",
+  "versionLabel": "1.0",
+  "sdkVersion": "3",
+  "targetPlatforms": ["aplite", "basalt", "chalk"],
+  "enableMultiJS": true,
+  "watchapp": {
+    "watchface": true
+  },
+  "appKeys": {
+    "dummy": 0
+  },
+  "resources": {
+    "media": []
+  }
+}

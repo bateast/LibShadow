@@ -1,0 +1,128 @@
+* Object
+
+  This library (~Shadow Library~) is aimed at providing easy implementation of object shadowing for Pebble applications and watchfaces. It manages object self shading and projective shadowing.
+
+  Due to limited resources on Pebble, the implementation is very crude and naive.
+
+* Limitations
+
+  As a graphic library working on the whole frame
+
+  - Works only on Pebble Time and Pebble Time Steel (basalt), though extension to Pebble Time Round would be easy
+  - Offset of projective shadow due to target self z position is not taken into account
+  - Color brightness modification is not uniform among colors and may impact color hue (brightness table to be refined)
+  - Self shading in not naturally continuous (if object is thinner than shading length)
+  - Self shading does not provide object shaping capabilities (only linear shading)
+
+* Usage
+
+  As of the use of LGPL, you can use this library in any application, open – source or not. I strongly encourage you to share your work.
+  If you use this library in paid application or watchface, I would appreciate to be granted a free licence, although you have no obligation to do so.
+
+  The library is based on an objects map that shall be updated during layer processing. At the end of framebuffer update, the objects map is used to create actual shadows.
+
+** Objects
+
+   Each element that will create shading (intra or projective) should be given a =GShadow= object. This object is created with the definition of its /inner_z/ and /outer_z/. /Inner_z/ defines its height and so the shade on the object itself, and /outer_z/ define its /z/ position, and so the offset of its projective shadow on other objects. Those value may be negative.
+
+   #+BEGIN_SRC c
+     static GShadow minute_shadow;
+     static GShadow hour_shadow;
+     static GShadow dot_shadow;
+
+     static void window_load(Window *window) {
+
+       /* ... */
+
+       /* GShadow new_shadowing_object (int inner_z, int outer_z); */
+       hour_shadow = new_shadowing_object (2, 8);
+       minute_shadow = new_shadowing_object (2, 4);
+       dot_shadow = new_shadowing_object (-2, 0);
+     }
+   #+END_SRC
+
+** Object map creation
+
+   Then each shadowing object must be drawn. It is not possible to use the actual layer buffer (that do not actually exist) when the elements are created and so the pebble drawing primitive must be re - done into a specific objects map.
+
+   A /hack/ is used to draw on the objects map during layer rendering through the original pebble functions. Context is switched to the objects map and GShadow objects are used as GColor.
+
+   Pebble drawing functions are then used to create the objects map. Drawing functions would most of the time be duplicated into true framebuffer and objects map.
+
+   True framebuffer context should be switch back to continue layer rendering.
+
+   #+BEGIN_SRC c
+     static void hands_update_proc(Layer *layer, GContext *ctx) {
+
+       /* ... */
+
+       graphics_context_set_stroke_color(ctx, hour_colour);
+       graphics_draw_line(ctx, screen_centre, hour_hand_outer);
+
+       switch_to_shadow_ctx (ctx);{
+         graphics_context_set_antialiased(ctx, false);
+
+         graphics_context_set_stroke_color(ctx, gcolor (hour_shadow));
+         graphics_draw_line(ctx, screen_centre, hour_hand_outer);
+       }revert_to_fb_ctx (ctx);
+  
+       /* ... */
+
+     }
+   #+END_SRC
+
+*** WARNING, freeing the shadow context
+
+    On first shadow context switch, the shadow context is actually created and allocated.
+
+    Then if any shadow context switch occurs, the shadow context must be destroyed and the end of the application.
+
+    #+BEGIN_SRC c
+      static void window_unload(Window *window) {
+
+        /* ... */
+
+        destroy_shadow_ctx ();
+      }
+    #+END_SRC
+
+** Shadowing rendering
+
+   At last, at the end of the topmost layer rendering, the shadow may be rendered on the whole framebuffer. Lighting direction is provided (as a Pebble angle value). Natural vision is better with lightning from NW. This direction may be updated at each re – rendering.
+
+   Then, object bitmap may be cleared out to prevent shadow ghosting on next shadow rendering.
+
+   #+BEGIN_SRC c
+     static void hands_update_proc(Layer *layer, GContext *ctx) {
+
+       /* ... */
+
+       /* The angle value is scaled linearly, such that a value of 0x10000 corresponds to 360 degrees or 2 PI radians. */
+       /* void create_shadow (GContext *ctx, int32_t angle); */
+       create_shadow (ctx, NW);
+       reset_shadow ();
+     }
+   #+END_SRC
+
+* Request, bug report, modification & hacking
+
+  Any contribution is gladely accepted. Please use Pull Request mechanisms with informations on crontributions and implementations.
+
+  A contribution can be on functionnality, but also on quality (code quality), documentation, testing, configurability and so on.
+
+  Also, any request or defect information should be provided through /Issues/ management.
+
+* Contributors & Contacts
+
+  Initial Creation :
+  - Baptiste Fouques <bateast@bat.fr.eu.org>
+  
+* Copyright & Licence
+
+  Copyright (C): Baptiste Fouques 2016
+
+  Shadow Library is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+  Shadow Library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU LesserGeneral Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License along with Shadow Library.  If not, see <http://www.gnu.org/licenses/>. 

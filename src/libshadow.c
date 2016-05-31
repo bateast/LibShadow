@@ -1,13 +1,23 @@
+/* Copyright (C): Baptiste Fouques 2016 */
+
+/* This file is part of Shadow Library. */
+
+/* Shadow Library is free software: you can redistribute it and/or modify */
+/* it under the terms of the GNU Lesser General Public License as published by */
+/* the Free Software Foundation, either version 3 of the License, or */
+/* (at your option) any later version. */
+
+/* Foobar is distributed in the hope that it will be useful, */
+/* but WITHOUT ANY WARRANTY; without even the implied warranty of */
+/* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the */
+/* GNU LesserGeneral Public License for more details. */
+
+/* You should have received a copy of the GNU Lesser General Public License */
+/* along with Shadow Library.  If not, see <http://www.gnu.org/licenses/>.  */
+
 #include <pebble.h>
 
 #include "libshadow.h"
-
-struct ShadowBitmap
-{
-  GBitmap *bitmap;
-  size_t data_size;
-  GColor mask_color;
-};
 
 void set_fb_pixel(GBitmap *bitmap, int y, int x, GColor color);
 GColor get_fb_pixel(GBitmap *bitmap, int y, int x);
@@ -17,7 +27,10 @@ GColor get_light_bright_color (GColor c);
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static int shadow_object_list [GShadowMaxRef][2];
+typedef struct {
+  int inner_z, outer_z;
+} GShadow_Information;
+static GShadow_Information shadow_object_list [GShadowMaxRef];
 static GShadow shadow_object_current = 0;
 
 static GBitmap *shadow_bitmap = NULL;
@@ -35,8 +48,9 @@ GColor8 gcolor (GShadow shadow) {
 
 GShadow new_shadowing_object (int inner_z, int outer_z) {
   GShadow r = shadow_object_current;
-  shadow_object_list [shadow_object_current][0] = inner_z;
-  shadow_object_list [shadow_object_current][1] =  outer_z;
+  shadow_object_list [shadow_object_current] = 
+    (GShadow_Information) { .inner_z = inner_z,
+                            .outer_z = outer_z};
   shadow_object_current = (shadow_object_current + 1) % GShadowMaxRef;
 
   return GShadowUnclear | r;
@@ -92,8 +106,8 @@ void create_shadow (GContext *ctx, int32_t angle) {
       for(int x = bounds.origin.x; x < bounds.origin.x + bounds.size.w; x++) {
         const GShadow id = (GShadow)get_fb_pixel (shadow_bitmap, y, x).argb;
         if (id != GShadowClear) {
-          const GShadow inner_z = shadow_object_list [id & GShadowMaxRef][0];
-          const GShadow outer_z = shadow_object_list [id & GShadowMaxRef][1];
+          const GShadow inner_z = shadow_object_list [id & GShadowMaxRef].inner_z;
+          const GShadow outer_z = shadow_object_list [id & GShadowMaxRef].outer_z;
           if (inner_z) {
             const int inner_x_plus = x + (offset_x * inner_z) / GShadowMaxValue;
             const int inner_y_plus = y + (offset_y * inner_z) / GShadowMaxValue;
@@ -126,7 +140,7 @@ void create_shadow (GContext *ctx, int32_t angle) {
             if (bounds.origin.y <= outer_y  && outer_y  < bounds.origin.y + bounds.size.h &&
                 bounds.origin.x <= outer_x  && outer_x  < bounds.origin.x + bounds.size.w ) {
               const GShadow dec_id_plus = (GShadow) get_fb_pixel (shadow_bitmap, outer_y, outer_x).argb;
-              const int dec_z = (dec_id_plus != GShadowClear)? shadow_object_list [dec_id_plus][1] : 0;
+              const int dec_z = (dec_id_plus != GShadowClear)? shadow_object_list [dec_id_plus].outer_z : 0;
               if (id != dec_id_plus &&
                   (outer_z == GShadowClear || outer_z > dec_z)) {
                 // we are down the object, then shadowing occurs
@@ -154,19 +168,7 @@ GColor get_fb_pixel(GBitmap *bitmap, int y, int x) {
     first_run = false;
   }
 
-#if (defined(PBL_BW) && defined(PLB_RECT))
-  return ((data[y*byte_per_row + x / 8] >> (x % 8)) & 1) == 1? (GColor)GColorWhiteARGB8: (GColor)GColorBlackARGB8;
-#endif
-#if (defined (PBL_COLOR) && defined (PBL_ROUND))
-  const GBitmapDataRowInfo info = gbitmap_get_data_row_info(bitmap, y);
-  if ((x >= info.min_x) && (x <= info.max_x))
-    return (GColor)info.data[x];
-  else
-    return GColorClear;
-#endif
-  /* #if (defined (PBL_COLOR) && defined (PBL_RECT)) */
   return (GColor)data[y*byte_per_row + x];
-  /* #endif */
 }
 
 // set pixel color at given coordinates
@@ -180,20 +182,7 @@ void set_fb_pixel(GBitmap *bitmap, int y, int x, GColor color) {
     first_run = false;
   }
 
-#if (defined(PBL_BW) && defined(PLB_RECT))
-  const uint8_t bit = (gcolor_equal (color, (GColor)GColorWhiteARGB8)? 1: 0); // YG 2016-05-09: SDK3 update - White Color means 1 in 1bit bitmapsm; Black Means 0
-  data[y*byte_per_row + x / 8] ^= (-bit ^ data[y*byte_per_row + x / 8]) & (1 << (x % 8));
-
-#endif
-#if (defined (PBL_COLOR) && defined (PBL_ROUND))
-  const GBitmapDataRowInfo info = gbitmap_get_data_row_info(bitmap, y);
-  if ((x >= info.min_x) && (x <= info.max_x)) {
-    ((GColor *)info.data)[x] = color;
-  }
-#endif
-  /* #if (defined (PBL_COLOR) && defined (PBL_RECT)) */
   ((GColor *)data)[y*byte_per_row + x] = color;
-  /* #endif */
 }
 
 GColor color_matrix [64][2]

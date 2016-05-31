@@ -1,0 +1,46 @@
+* Principles
+
+  Pebble graphic library is based on layers hierarchy that manage drawn objects on screen. Each layer shall be redrawn when a dedicated callback is fired by Pebble mechanisms. Because of resources constraints, there is no actual partial redraw and the whole screen and every layers are all redrawn at once.
+
+  Then there is no actual layer bitmaps allowing to create z-layer as base for shadowing. A dedicated /objects map/ is created to keep object information and position amongs layers. This map is then used to create shades and shadows.
+
+* Object representation
+
+  GColor8.rgb value are actually used as object identifiants that are placed on objects map, allowing pebble graphic primitive to be used. ~GShadow~ type is used as shadow objects, mapped directly to GColor8.
+
+  ~new_shadowing_object~ function provide a yet unused ~GShadow~ value and store in ~shadow_object_list~ the information on the object :
+  - inner z (indice 0)
+
+* Objects map management
+
+  ~GBitmap *shadow_bitmap~ static bitmap is used as objects map. On first call to context switch (~switch_to_shadow_ctx~), it is allocated, along with the initialization of ~shadow_bitmap_~ static variables, to match framebuffer bitmap size. Calls to context_switch (~switch_to_shadow_ctx~) and context revert (~revert_to_fb_ctx~) change context framebuffer bitmap to this objects map or back to initial framebuffer bitmap.
+
+  While on shadow bitmap context, standard pebble graphic function can be used to draw GShadow object on objects maps.
+
+  When the program is unloaded, shadow_bitmap must be de – allocated (call to ~destroy_shadow_ctx~).
+
+  On the last call of the topmost layer rendering callback, the actual shadows can be created through the call to ~create_shadow~. It computes for every framebuffer pixel :
+  - on which object in the objects map is this pixel
+    - whether this pixel is nearby a border of the object
+      - on which side of the object the pixel is (bright side toward light, dark side is the shade)
+      - apply color brightness modification accordingly
+    - whether this pixel is of a object that create projective shadows
+      - apply shading to pixel at shadow offset from the object.
+
+  Before starting a new screen rendering, or at the end of last screen rendering, objects map shall be cleared out (~reset_shadow~) to remove traces of previous objects.
+
+* Contributors & Contact
+
+  See README.
+
+* Copyright & Licence
+
+  See README.
+
+  Copyright (C): Baptiste Fouques 2016
+
+  Shadow Library is free software: you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+
+  Shadow Library is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU LesserGeneral Public License for more details.
+
+  You should have received a copy of the GNU Lesser General Public License along with Shadow Library.  If not, see <http://www.gnu.org/licenses/>. 

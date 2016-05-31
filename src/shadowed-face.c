@@ -39,8 +39,6 @@
 #define MINUTE_HAND_COLOR   PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
 #define TOP_BLOB_COLOUR     PBL_IF_COLOR_ELSE(GColorChromeYellow, GColorWhite)
 
-#define GColorShadow GColorMelon
-
 #define WH_WIDTH            9
 
 typedef struct {
@@ -285,6 +283,7 @@ static void window_load(Window *window) {
 static void window_unload(Window *window) {
   layer_destroy(background_layer);
   layer_destroy(hands_layer);
+  destroy_shadow_ctx ();
 }
 
 /*

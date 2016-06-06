@@ -31,6 +31,7 @@ typedef int8_t GShadow;
 GColor gcolor (GShadow shadow);
 
 GShadow new_shadowing_object (int inner_z, int outer_z);
+GShadow new_shadowing_object_over (int inner_z, int outer_z, GShadow over);
 
 void switch_to_shadow_ctx (GContext *ctx);
 void revert_to_fb_ctx (GContext *ctx);

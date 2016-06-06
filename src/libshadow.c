@@ -16,6 +16,7 @@
 /* along with Shadow Library.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include <pebble.h>
+#include <limits.h>
 
 #include "libshadow.h"
 
@@ -29,9 +30,17 @@ GColor get_light_bright_color (GColor c);
 
 typedef struct {
   int inner_z, outer_z;
+  bool over_set;
+  GShadow over;
 } GShadow_Information;
+
 static GShadow_Information shadow_object_list [GShadowMaxRef];
-static GShadow shadow_object_current = 0;
+static GShadow get_and_increment_object_counter () {
+  static GShadow current = 0;
+  const GShadow r = current;
+  current = (current + 1) % GShadowMaxRef;
+  return r;
+}
 
 static GBitmap *shadow_bitmap = NULL;
 static uint8_t *shadow_bitmap_data;
@@ -47,11 +56,23 @@ GColor8 gcolor (GShadow shadow) {
 }
 
 GShadow new_shadowing_object (int inner_z, int outer_z) {
-  GShadow r = shadow_object_current;
-  shadow_object_list [shadow_object_current] = 
+  GShadow r = get_and_increment_object_counter ();
+  shadow_object_list [r] =
     (GShadow_Information) { .inner_z = inner_z,
-                            .outer_z = outer_z};
-  shadow_object_current = (shadow_object_current + 1) % GShadowMaxRef;
+                            .outer_z = outer_z,
+                            .over_set = false,
+                            .over = GShadowClear};
+
+  return GShadowUnclear | r;
+}
+
+GShadow new_shadowing_object_over (int inner_z, int outer_z, GShadow over) {
+  GShadow r = get_and_increment_object_counter ();
+  shadow_object_list [r] =
+    (GShadow_Information) { .inner_z = inner_z,
+                            .outer_z = outer_z,
+                            .over_set = true,
+                            .over = over};
 
   return GShadowUnclear | r;
 }
@@ -109,42 +130,50 @@ void create_shadow (GContext *ctx, int32_t angle) {
           const GShadow inner_z = shadow_object_list [id & GShadowMaxRef].inner_z;
           const GShadow outer_z = shadow_object_list [id & GShadowMaxRef].outer_z;
           if (inner_z) {
-            const int inner_x_plus = x + (offset_x * inner_z) / GShadowMaxValue;
-            const int inner_y_plus = y + (offset_y * inner_z) / GShadowMaxValue;
-            const int inner_x_minus = x - (offset_x * inner_z) / GShadowMaxValue;
-            const int inner_y_minus = y - (offset_y * inner_z) / GShadowMaxValue;
+            const int x_plus = x + (offset_x * inner_z) / GShadowMaxValue;
+            const int y_plus = y + (offset_y * inner_z) / GShadowMaxValue;
+            const int x_minus = x - (offset_x * inner_z) / GShadowMaxValue;
+            const int y_minus = y - (offset_y * inner_z) / GShadowMaxValue;
 
-            if (bounds.origin.y <= inner_y_plus  && inner_y_plus  < bounds.origin.y + bounds.size.h &&
-                bounds.origin.x <= inner_x_plus  && inner_x_plus  < bounds.origin.x + bounds.size.w &&
-                bounds.origin.y <= inner_y_minus && inner_y_minus < bounds.origin.y + bounds.size.h &&
-                bounds.origin.x <= inner_x_minus && inner_x_minus < bounds.origin.x + bounds.size.w) {
-              const int dec_id_plus  = (GShadow) get_fb_pixel (shadow_bitmap, inner_y_plus, inner_x_plus).argb;
-              const int dec_id_minus = (GShadow) get_fb_pixel (shadow_bitmap, inner_y_minus, inner_x_minus).argb;
+            if (bounds.origin.y <= y_plus  && y_plus  < bounds.origin.y + bounds.size.h &&
+                bounds.origin.x <= x_plus  && x_plus  < bounds.origin.x + bounds.size.w &&
+                bounds.origin.y <= y_minus && y_minus < bounds.origin.y + bounds.size.h &&
+                bounds.origin.x <= x_minus && x_minus < bounds.origin.x + bounds.size.w) {
+              const int id_plus  = (GShadow) get_fb_pixel (shadow_bitmap, y_plus, x_plus).argb;
+              const int id_minus = (GShadow) get_fb_pixel (shadow_bitmap, y_minus, x_minus).argb;
               // we are still on the same object, then shadow apply
-              if (id == dec_id_minus && id == dec_id_plus) {
+              if (id == id_minus && id == id_plus) {
                 // we are in the middle of the object
-              } else if (id == dec_id_minus && id != dec_id_plus) {
-                // we are at the shadow side of the object
-                set_fb_pixel (fb, y, x, get_light_shadow_color (get_fb_pixel (fb, y, x)));
-              } else if (id != dec_id_minus && id == dec_id_plus) {
-                // we are at the bright side of the object
-                set_fb_pixel (fb, y, x, get_light_bright_color (get_fb_pixel (fb, y, x)));
               } else {
-                // we are at an edge of the object
+                const bool over_set = shadow_object_list [id & GShadowMaxRef].over_set;
+                const GShadow over = shadow_object_list [id & GShadowMaxRef].over;
+                const bool 
+                  over_plus  = over_set ? (id_plus  == GShadowClear || id_plus  == over) : id != id_plus,
+                  over_minus = over_set ? (id_minus == GShadowClear || id_minus == over) : id != id_minus;
+                if (id == id_minus && over_plus) {
+                  // we are at the shadow side of the object
+                  set_fb_pixel (fb, y, x, get_light_shadow_color (get_fb_pixel (fb, y, x)));
+                } else if (over_minus && id == id_plus) {
+                  // we are at the bright side of the object
+                  set_fb_pixel (fb, y, x, get_light_bright_color (get_fb_pixel (fb, y, x)));
+                } else {
+                  // we are at an edge of the object
+                }
               }
             }
           }
           if (outer_z) {
-            const int outer_x = x + (offset_x * outer_z) / GShadowMaxValue;
-            const int outer_y = y + (offset_y * outer_z) / GShadowMaxValue;
-            if (bounds.origin.y <= outer_y  && outer_y  < bounds.origin.y + bounds.size.h &&
-                bounds.origin.x <= outer_x  && outer_x  < bounds.origin.x + bounds.size.w ) {
-              const GShadow dec_id_plus = (GShadow) get_fb_pixel (shadow_bitmap, outer_y, outer_x).argb;
-              const int dec_z = (dec_id_plus != GShadowClear)? shadow_object_list [dec_id_plus].outer_z : 0;
-              if (id != dec_id_plus &&
-                  (outer_z == GShadowClear || outer_z > dec_z)) {
+            const int x_plus = x + (offset_x * outer_z) / GShadowMaxValue;
+            const int y_plus = y + (offset_y * outer_z) / GShadowMaxValue;
+            if (bounds.origin.y <= y_plus  && y_plus  < bounds.origin.y + bounds.size.h &&
+                bounds.origin.x <= x_plus  && x_plus  < bounds.origin.x + bounds.size.w ) {
+              const GShadow id_plus = (GShadow) get_fb_pixel (shadow_bitmap, y_plus, x_plus).argb;
+              const int z_plus = (id_plus != GShadowClear) ?
+                shadow_object_list [id_plus & GShadowMaxRef].outer_z + shadow_object_list [id_plus & GShadowMaxRef].inner_z:
+                INT_MIN;
+              if (outer_z + inner_z > z_plus) {
                 // we are down the object, then shadowing occurs
-                set_fb_pixel (fb, outer_y, outer_x, get_light_shadow_color (get_fb_pixel (fb, outer_y, outer_x)));
+                set_fb_pixel (fb, y_plus, x_plus, get_light_shadow_color (get_fb_pixel (fb, y_plus, x_plus)));
               }
             }
           }

@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "author": "Bat",
+  "private": true,
+  "dependencies": {},
+  "keywords": [
+    "pebble-app"
+  ],
+  "pebble": {
+    "sdkVersion": "3",
+    "resources": {
+      "media": []
+    },
+    "projectType": "native",
+    "uuid": "b66e18fd-5209-4f2b-a27a-44909014669b",
+    "messageKeys": {
+      "dummy": 0
+    },
+    "enableMultiJS": true,
+    "displayName": "shadowed-face",
+    "watchapp": {
+      "onlyShownOnCommunication": false,
+      "hiddenApp": false,
+      "watchface": true
+    },
+    "targetPlatforms": [
+        "basalt", "chalk", "emery"
+    ],
+    "capabilities": []
+  },
+  "name": "shadowed-face"
+}

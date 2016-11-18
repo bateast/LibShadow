@@ -59,7 +59,7 @@ static GColor hour_colour;
 static GShadow minute_shadow;
 static GShadow hour_shadow;
 static GShadow dot_shadow;
-
+static GShadow hole_shadow, shadow_bg;
 /*
  * Animation start
  */
@@ -175,6 +175,17 @@ static void background_update_proc(Layer *layer, GContext *ctx) {
     graphics_context_set_fill_color(ctx, TOP_BLOB_COLOUR);
     graphics_fill_circle(ctx, pos, TOP_BLOB_SIZE);
 
+    // background
+    switch_to_shadow_ctx (ctx);{
+      graphics_context_set_fill_color(ctx, gcolor (shadow_bg));
+      graphics_fill_rect(ctx, bounds, 0, GCornerNone);
+    }revert_to_fb_ctx (ctx);
+    // Center hole
+    switch_to_shadow_ctx (ctx);{
+      graphics_context_set_fill_color(ctx, gcolor (hole_shadow));
+      graphics_fill_circle(ctx, (GPoint){.x = bounds.size.w / 2, .y = bounds.size.h / 2}, bounds.size.w / 2 - PBL_IF_ROUND_ELSE(13,0));
+    }revert_to_fb_ctx (ctx);
+
     switch_to_shadow_ctx (ctx);{
       graphics_context_set_antialiased(ctx, false);
       graphics_context_set_fill_color(ctx, gcolor (dot_shadow));
@@ -272,9 +283,11 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, background_layer);
   layer_add_child(background_layer, hands_layer);
 
-  hour_shadow = new_shadowing_object (2, 8);
-  minute_shadow = new_shadowing_object (2, 4);
-  dot_shadow = new_shadowing_object (-2, 0);
+  shadow_bg = new_shadowing_object (0, 3, 0);
+  hole_shadow = new_shadowing_object (-5, 0, 0);
+  hour_shadow = new_shadowing_object (0, 2, 8);
+  minute_shadow = new_shadowing_object (0, 2, 4);
+  dot_shadow = new_shadowing_object (0, -2, 0);
 }
 
 /*

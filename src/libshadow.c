@@ -84,7 +84,7 @@ void reset_shadow () {
 }
 
 void switch_to_shadow_ctx (GContext * const ctx) {
-  GBitmap * const fb = graphics_capture_frame_buffer(ctx); {
+  Gbitmap * const fb = graphics_capture_frame_buffer(ctx); {
     if (shadow_bitmap == NULL) {
       const GRect shadow_bitmap_bounds = gbitmap_get_bounds (fb);
       shadow_bitmap_format = gbitmap_get_format (fb);

@@ -4,6 +4,12 @@
 
   Due to limited resources on Pebble, the implementation is very crude and naive.
 
+* Screenshot
+
+  [[file:basic.png]] → [[file:basic-shadow.png]]
+
+  [[file:engineering.png]] → [[file:engineering-shadow.png]]
+  
 * Limitations
 
   As a graphic library working on the whole frame
